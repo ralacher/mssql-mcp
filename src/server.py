@@ -11,9 +11,17 @@ from typing import Any
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor
 from opentelemetry.instrumentation.pymssql import PyMSSQLInstrumentor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
+tracer = trace.get_tracer(__name__)
+
+AsyncioInstrumentor().instrument()
+PyMSSQLInstrumentor().instrument()
+LoggingInstrumentor().instrument(set_logging_format=True)
+
+logger = logging.getLogger("mcp_mssql_server")
 logging.basicConfig(
     level=logging.DEBUG,  # or INFO
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -24,11 +32,6 @@ configure_azure_monitor(
     logger_name="mcp_mssql_server"
 )
 
-AsyncioInstrumentor().instrument()
-PyMSSQLInstrumentor().instrument()
-
-tracer = trace.get_tracer(__name__)
-
 connection_string = {
     "server": os.getenv("MSSQL_SERVER"),
     "user": os.getenv("MSSQL_USER"),
@@ -36,7 +39,6 @@ connection_string = {
     "database": os.getenv("MSSQL_DATABASE")
 }
 
-logger = logging.getLogger("mcp_mssql_server")
 logger.info("Starting MCP MSSQL Server")
 
 class Database:
@@ -122,6 +124,7 @@ async def main():
         with tracer.start_as_current_span("handle_call_tool", kind=SpanKind.SERVER) as span:
             try:
                 if name == "list_tables":
+                    span.set_attribute("http.url", "http://0.0.0.0/mssql/list_tables")
                     # Get all table names
                     tables = db._execute_query(
                         """
@@ -152,6 +155,7 @@ async def main():
                     raise ValueError("No arguments provided for tool execution")
 
                 if name == "read_query":
+                    span.set_attribute("http.url", "http://0.0.0.0/mssql/read_query")
                     query_upper = arguments["query"].strip().upper()
                     if not (query_upper.startswith("SELECT") or query_upper.startswith("WITH")):
                         raise ValueError("Invalid query type for read_query, must be a SELECT or WITH statement")
