@@ -1,5 +1,9 @@
 pyodbc>=4.0.39
+pymssql>=2.3.7
 pydantic>=2.0.0
 mcp>=0.1.0
 mcpo>=0.0.16
 azure-monitor-opentelemetry>=1.6.13
+opentelemetry-instrumentation-asyncio
+opentelemetry-instrumentation-pymssql
+azure-ai

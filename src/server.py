@@ -1,6 +1,6 @@
 import os
 import json
-import pyodbc
+import pymssql
 import logging
 from contextlib import closing
 from mcp.server.models import InitializationOptions
@@ -9,6 +9,8 @@ from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
 from typing import Any
 from azure.monitor.opentelemetry import configure_azure_monitor
+from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor
+from opentelemetry.instrumentation.pymssql import PyMSSQLInstrumentor
 
 logging.basicConfig(
     level=logging.DEBUG,  # or INFO
@@ -19,19 +21,29 @@ logging.basicConfig(
 configure_azure_monitor(
     logger_name="mcp_mssql_server"
 )
+
+AsyncioInstrumentor().instrument()
+PyMSSQLInstrumentor().instrument()
+
+connection_string = {
+    "server": os.getenv("MSSQL_SERVER"),
+    "user": os.getenv("MSSQL_USER"),
+    "password": os.getenv("MSSQL_PASSWORD"),
+    "database": os.getenv("MSSQL_DATABASE")
+}
+
 logger = logging.getLogger("mcp_mssql_server")
 logger.info("Starting MCP MSSQL Server")
 
 class Database:
     def __init__(self):
-        self.connection_string = os.getenv("MSSQL_CONNECTION_STRING")
         self._init_database()
 
     def _init_database(self):
         """Initialize the database connection and test it"""
         logger.debug("Connecting to the database to test connection")
         try:
-            conn = pyodbc.connect(self.connection_string)
+            conn = pymssql.connect(**connection_string)
             conn.close()
             logger.debug("Connection to the database established successfully")
         except Exception as e:
@@ -42,9 +54,10 @@ class Database:
         """Execute a SQL query and return the results"""
         logger.debug(f"Query: {query}")
         try:
-            with closing(pyodbc.connect(self.connection_string)) as conn:
+            with closing(pymssql.connect(**connection_string)) as conn:
                 with closing(conn.cursor()) as cursor:
                     if params:
+
                         cursor.execute(query, params)
                     else:
                         cursor.execute(query)
@@ -141,8 +154,8 @@ async def main():
                 return [types.TextContent(type="text", text=str(results))]
 
             raise ValueError(f"Error: {name}")
-        except pyodbc.Error as e:
-            return [types.TextContent(type="text", text=f"PYODBC Error: {str(e)}")]
+        except pymssql.Error as e:
+            return [types.TextContent(type="text", text=f"PYMSSQL Error: {str(e)}")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Exception: {str(e)}")]
 
