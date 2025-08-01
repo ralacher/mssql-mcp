@@ -31,16 +31,13 @@ These can be set in your environment or injected at container runtime. If not se
 
 2. **Run the container:**
    ```sh
-   docker run --rm -it \
-     -v $(pwd)/src/config.json:/app/src/config.json:ro \
-     mssql-mcp
+   docker run --rm -it mssql-mcp
    ```
-   (Mount your config file as needed, or bake it into the image.)
 
 3. **Default command:**
    The container runs:
    ```sh
-   mcpo --config client_config.json
+   mcpo --config config.json
    ```
 
 ## Requirements

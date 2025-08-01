@@ -22,4 +22,4 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 RUN pip install mcpo
 
 # Set the default command
-CMD ["mcpo", "--config", "client_config.json"]
+CMD ["mcpo", "--config", "config.json"]
