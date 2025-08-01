@@ -1,6 +1,14 @@
 # MSSQL MCP Server
 
-This project is an MCP (Model Context Protocol) server for connecting to Microsoft SQL Server databases. It provides a set of tools for interacting with your MSSQL database, including schema inspection, querying, and business insights, all accessible via the MCP protocol.
+This project is an MCP (Model Context Protocol) server for connecting to Microsoft SQL Server databases. It uses MCPO to introduce an OpenAPI proxy in front of the MCP server, enabling OpenAPI-compatible clients to interact with the MCP server via a standardized HTTP interface. The server provides tools for schema inspection and querying, all accessible via the MCP protocol or through the OpenAPI proxy.
+
+## Diagram
+```mermaid
+flowchart LR
+    User --> |Prompt| Agent
+    Agent --> |OpenAPI| Container
+    Container --> |T-SQL| Database
+```
 
 ## Features
 - Connects to Microsoft SQL Server using MCP
