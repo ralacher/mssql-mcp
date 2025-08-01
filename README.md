@@ -28,7 +28,7 @@ Set the following environment variables to configure the database connection:
 - `MCP_SERVER_NAME` (mcp-database-assistant)
 - `MCP_SERVER_VERSION` (1.0.0)
 
-These can be set in your environment or injected at container runtime. If not set, the server will use values from `src/config.json`.
+These can be set in your environment or injected at container runtime.
 
 ## Building and Running with Docker
 
