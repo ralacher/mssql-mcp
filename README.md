@@ -24,9 +24,13 @@ flowchart LR
 
 Set the following environment variables to configure the database connection:
 
-- `MSSQL_CONNECTION_STRING` (Server=tcp:{server}.database.windows.net,1433;Database={database};UID={user};PWD={password};Driver=ODBC Driver 17 for SQL Server) 
+- `MSSQL_SERVER` (name.database.windows.net)
+- `MSSQL_DATABASE` (Name)
+- `MSSQL_USER` (Username)
+- `MSSQL_PASSWORD` (Password) 
 - `MCP_SERVER_NAME` (mcp-database-assistant)
 - `MCP_SERVER_VERSION` (1.0.0)
+- `APPLICATIONINSIGHTS_CONNECTION_STRING` (InstrumentationKey=...)
 
 These can be set in your environment or injected at container runtime.
 
