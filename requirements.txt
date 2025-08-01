@@ -1,0 +1,4 @@
+pyodbc>=4.0.39
+pydantic>=2.0.0
+mcp>=0.1.0
+mcpo>=0.0.16

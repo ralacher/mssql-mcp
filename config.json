@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+        "mssql": {
+            "command": "python",
+            "args": [
+                "src/server.py"
+            ]
+        }
+    }
+}
