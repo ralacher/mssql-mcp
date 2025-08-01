@@ -8,6 +8,7 @@ import mcp.types as types
 from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
 from typing import Any
+from azure.monitor.opentelemetry import configure_azure_monitor
 
 logging.basicConfig(
     level=logging.DEBUG,  # or INFO
@@ -15,6 +16,9 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 
+configure_azure_monitor(
+    logger_name="mcp_mssql_server"
+)
 logger = logging.getLogger("mcp_mssql_server")
 logger.info("Starting MCP MSSQL Server")
 
