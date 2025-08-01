@@ -11,6 +11,8 @@ from typing import Any
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor
 from opentelemetry.instrumentation.pymssql import PyMSSQLInstrumentor
+from opentelemetry import trace
+from opentelemetry.trace import SpanKind
 
 logging.basicConfig(
     level=logging.DEBUG,  # or INFO
@@ -24,6 +26,8 @@ configure_azure_monitor(
 
 AsyncioInstrumentor().instrument()
 PyMSSQLInstrumentor().instrument()
+
+tracer = trace.get_tracer(__name__)
 
 connection_string = {
     "server": os.getenv("MSSQL_SERVER"),
@@ -115,49 +119,52 @@ async def main():
         name: str, arguments: dict[str, Any] | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         """MCP server tool execution handler"""
-        try:
-            if name == "list_tables":
-                # Get all table names
-                tables = db._execute_query(
-                    """
-                    SELECT TABLE_NAME as name 
-                    FROM INFORMATION_SCHEMA.TABLES 
-                    WHERE TABLE_TYPE = 'BASE TABLE'
-                    """
-                )
-                table_info = {}
-                for table in tables:
-                    table_name = table["name"]
-                    columns = db._execute_query(
+        with tracer.start_as_current_span("handle_call_tool", kind=SpanKind.SERVER) as span:
+            try:
+                if name == "list_tables":
+                    # Get all table names
+                    tables = db._execute_query(
                         """
-                        SELECT COLUMN_NAME as name, DATA_TYPE as type
-                        FROM INFORMATION_SCHEMA.COLUMNS
-                        WHERE TABLE_NAME = ?
-                        """,
-                        (table_name,)
+                        SELECT TABLE_NAME as name 
+                        FROM INFORMATION_SCHEMA.TABLES 
+                        WHERE TABLE_TYPE = 'BASE TABLE'
+                        """
                     )
-                    table_info[table_name] = columns
-                return [
-                    types.TextContent(
-                        type="text", text=json.dumps(table_info, ensure_ascii=False, indent=2)
-                    )
-                ]
+                    table_info = {}
+                    for table in tables:
+                        table_name = table["name"]
+                        columns = db._execute_query(
+                            """
+                            SELECT COLUMN_NAME as name, DATA_TYPE as type
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_NAME = ?
+                            """,
+                            (table_name,)
+                        )
+                        table_info[table_name] = columns
+                    return [
+                        types.TextContent(
+                            type="text", text=json.dumps(table_info, ensure_ascii=False, indent=2)
+                        )
+                    ]
 
-            if not arguments:
-                raise ValueError("No arguments provided for tool execution")
+                if not arguments:
+                    raise ValueError("No arguments provided for tool execution")
 
-            if name == "read_query":
-                query_upper = arguments["query"].strip().upper()
-                if not (query_upper.startswith("SELECT") or query_upper.startswith("WITH")):
-                    raise ValueError("Invalid query type for read_query, must be a SELECT or WITH statement")
-                results = db._execute_query(arguments["query"])
-                return [types.TextContent(type="text", text=str(results))]
+                if name == "read_query":
+                    query_upper = arguments["query"].strip().upper()
+                    if not (query_upper.startswith("SELECT") or query_upper.startswith("WITH")):
+                        raise ValueError("Invalid query type for read_query, must be a SELECT or WITH statement")
+                    results = db._execute_query(arguments["query"])
+                    return [types.TextContent(type="text", text=str(results))]
 
-            raise ValueError(f"Error: {name}")
-        except pymssql.Error as e:
-            return [types.TextContent(type="text", text=f"PYMSSQL Error: {str(e)}")]
-        except Exception as e:
-            return [types.TextContent(type="text", text=f"Exception: {str(e)}")]
+                raise ValueError(f"Error: {name}")
+            except pymssql.Error as e:
+                span.record_exception(e)
+                return [types.TextContent(type="text", text=f"PYMSSQL Error: {str(e)}")]
+            except Exception as e:
+                span.record_exception(e)
+                return [types.TextContent(type="text", text=f"Exception: {str(e)}")]
 
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         logger.info("Starting MCP server with stdio")
