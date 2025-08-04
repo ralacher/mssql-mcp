@@ -2,6 +2,7 @@ import os
 import json
 import pymssql
 import logging
+import socket
 from contextlib import closing
 from mcp.server.models import InitializationOptions
 import mcp.types as types
@@ -21,12 +22,10 @@ AsyncioInstrumentor().instrument()
 PyMSSQLInstrumentor().instrument()
 LoggingInstrumentor().instrument(set_logging_format=True)
 
-logger = logging.getLogger("mcp_mssql_server")
 logging.basicConfig(
-    level=logging.DEBUG,  # or INFO
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    handlers=[logging.StreamHandler()]
+    level=logging.INFO
 )
+logger = logging.getLogger("mcp_mssql_server")
 
 configure_azure_monitor(
     logger_name="mcp_mssql_server"
@@ -58,7 +57,7 @@ class Database:
 
     def _execute_query(self, query: str, params: dict[str, Any] | tuple | list | None = None) -> list[dict[str, Any]]:
         """Execute a SQL query and return the results"""
-        logger.debug(f"Query: {query}")
+        logger.info(f"Query: {query}")
         try:
             with closing(pymssql.connect(**connection_string)) as conn:
                 with closing(conn.cursor()) as cursor:
@@ -71,12 +70,12 @@ class Database:
                     if query.strip().upper().startswith(("INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER")):
                         conn.commit()
                         affected = cursor.rowcount
-                        logger.debug(f"Rows affected: {affected}")
+                        logger.info(f"Rows affected: {affected}")
                         return [{"affected_rows": affected}]
 
                     columns = [column[0] for column in cursor.description] if cursor.description else []
                     results = [dict(zip(columns, row)) for row in cursor.fetchall()]
-                    logger.debug(f"Number results: {len(results)}")
+                    logger.info(f"Number results: {len(results)}")
                     return results
         except Exception as e:
             logger.error(f"Exception: {e}")
@@ -124,7 +123,11 @@ async def main():
         with tracer.start_as_current_span("handle_call_tool", kind=SpanKind.SERVER) as span:
             try:
                 if name == "list_tables":
-                    span.set_attribute("http.url", "http://0.0.0.0/mssql/list_tables")
+                    span.set_attribute("http.request.method", "POST")
+                    span.set_attribute("url.path", "/list_tables")
+                    span.set_attribute("server.address", socket.gethostname())
+                    span.set_attribute("server.port", 8080)
+                    span.set_attribute("url.scheme", "https")
                     # Get all table names
                     tables = db._execute_query(
                         """
@@ -145,6 +148,7 @@ async def main():
                             (table_name,)
                         )
                         table_info[table_name] = columns
+                    span.set_attribute("http.response.status_code", 200)
                     return [
                         types.TextContent(
                             type="text", text=json.dumps(table_info, ensure_ascii=False, indent=2)
@@ -155,19 +159,28 @@ async def main():
                     raise ValueError("No arguments provided for tool execution")
 
                 if name == "read_query":
-                    span.set_attribute("http.url", "http://0.0.0.0/mssql/read_query")
+                    span.set_attribute("http.request.method", "POST")
+                    span.set_attribute("url.path", "/read_query")
+                    span.set_attribute("server.address", socket.gethostname())
+                    span.set_attribute("server.port", 8080)
+                    span.set_attribute("url.scheme", "https")
                     query_upper = arguments["query"].strip().upper()
                     if not (query_upper.startswith("SELECT") or query_upper.startswith("WITH")):
                         raise ValueError("Invalid query type for read_query, must be a SELECT or WITH statement")
                     results = db._execute_query(arguments["query"])
+                    span.set_attribute("http.response.status_code", 200)
                     return [types.TextContent(type="text", text=str(results))]
 
                 raise ValueError(f"Error: {name}")
             except pymssql.Error as e:
                 span.record_exception(e)
+                span.set_attribute("http.response.status_code", 400)
+                raise ValueError(f"PYMSSQL Error: {str(e)}")
                 return [types.TextContent(type="text", text=f"PYMSSQL Error: {str(e)}")]
             except Exception as e:
                 span.record_exception(e)
+                span.set_attribute("http.response.status_code", 400)
+                raise ValueError(f"Exception: {str(e)}")
                 return [types.TextContent(type="text", text=f"Exception: {str(e)}")]
 
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
