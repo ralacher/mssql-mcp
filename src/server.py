@@ -143,7 +143,7 @@ async def main():
                             """
                             SELECT COLUMN_NAME as name, DATA_TYPE as type
                             FROM INFORMATION_SCHEMA.COLUMNS
-                            WHERE TABLE_NAME = ?
+                            WHERE TABLE_NAME = %s
                             """,
                             (table_name,)
                         )
