@@ -175,7 +175,7 @@ async def main():
                         response["results"].append(result)
                     return [
                         types.TextContent(
-                            type="text", text=json.dumps(results, ensure_ascii=False, indent=2)
+                            type="text", text=json.dumps(response, ensure_ascii=False, indent=2)
                         )
                     ]
 
