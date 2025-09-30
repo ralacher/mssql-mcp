@@ -3,6 +3,9 @@ import json
 import pymssql
 import logging
 import socket
+import decimal
+import datetime
+import uuid
 from contextlib import closing
 from mcp.server.models import InitializationOptions
 import mcp.types as types
@@ -80,6 +83,22 @@ class Database:
         except Exception as e:
             logger.error(f"Exception: {e}")
             raise
+
+    def make_json_safe(self, obj):
+        if isinstance(obj, list):
+            return [self.make_json_safe(item) for item in obj]
+        elif isinstance(obj, dict):
+            return {k: self.make_json_safe(v) for k, v in obj.items()}
+        elif isinstance(obj, decimal.Decimal):
+            return float(obj)
+        elif isinstance(obj, uuid.UUID):
+            return str(obj)
+        elif isinstance(obj, (datetime.datetime, datetime.date)):
+            return obj.isoformat()
+        elif isinstance(obj, bytes):
+            return obj.decode('utf-8', errors='replace')
+        else:
+            return obj
 
 async def main():
     logger.info("Starting MSSQL Server")
@@ -173,9 +192,11 @@ async def main():
                     response = {"results": []}
                     for result in results:
                         response["results"].append(result)
+                    # Before json.dumps:
+                    safe_response = db.make_json_safe(response)
                     return [
                         types.TextContent(
-                            type="text", text=json.dumps(response, ensure_ascii=False, indent=2)
+                            type="text", text=json.dumps(safe_response, ensure_ascii=False, indent=2)
                         )
                     ]
 
