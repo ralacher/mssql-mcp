@@ -187,6 +187,7 @@ async def main():
                     if not (query_upper.startswith("SELECT") or query_upper.startswith("WITH")):
                         raise ValueError("Invalid query type for read_query, must be a SELECT or WITH statement")
                     results = db._execute_query(arguments["query"])
+                    logger.info(f"Response from database: {safe_response}")
                     span.set_attribute("http.response.status_code", 200)
 
                     response = {"results": []}
@@ -194,6 +195,7 @@ async def main():
                         response["results"].append(result)
                     # Before json.dumps:
                     safe_response = db.make_json_safe(response)
+                    logger.info(f"Response JSOn formatted: {safe_response}")
                     return [
                         types.TextContent(
                             type="text", text=json.dumps(safe_response, ensure_ascii=False, indent=2)
