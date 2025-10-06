@@ -187,7 +187,7 @@ async def main():
                     if not (query_upper.startswith("SELECT") or query_upper.startswith("WITH")):
                         raise ValueError("Invalid query type for read_query, must be a SELECT or WITH statement")
                     results = db._execute_query(arguments["query"])
-                    logger.info(f"Response from database: {safe_response}")
+                    logger.info(f"Response from database: {results}")
                     span.set_attribute("http.response.status_code", 200)
 
                     response = {"results": []}
